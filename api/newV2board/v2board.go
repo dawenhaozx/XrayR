@@ -24,18 +24,19 @@ import (
 
 // APIClient create an api client to the panel.
 type APIClient struct {
-	client        *resty.Client
-	APIHost       string
-	NodeID        int
-	Key           string
-	NodeType      string
-	EnableVless   bool
-	VlessFlow     string
-	SpeedLimit    float64
-	DeviceLimit   int
-	LocalRuleList []api.DetectRule
-	resp          atomic.Value
-	eTags         map[string]string
+	client           *resty.Client
+	APIHost          string
+	NodeID           int
+	Key              string
+	NodeType         string
+	EnableVless      bool
+	VlessFlow        string
+	SpeedLimit       float64
+	DeviceLimit      int
+	LocalRuleList    []api.DetectRule
+	LastReportOnline map[int]int
+	resp             atomic.Value
+	eTags            map[string]string
 }
 
 // New create an api instance
@@ -56,17 +57,18 @@ func New(apiConfig *api.Config) *APIClient {
 	})
 	client.SetBaseURL(apiConfig.APIHost)
 
-	var nodeType string
-
-	if apiConfig.NodeType == "V2ray" && apiConfig.EnableVless {
-		nodeType = "vless"
-	} else {
-		nodeType = strings.ToLower(apiConfig.NodeType)
-	}
 	// Create Key for each requests
+	nodeType_for_requests := func() string {
+		if apiConfig.NodeType == "V2ray" && apiConfig.EnableVless {
+			return "vless"
+		} else {
+			return apiConfig.NodeType
+		}
+	}()
+
 	client.SetQueryParams(map[string]string{
 		"node_id":   strconv.Itoa(apiConfig.NodeID),
-		"node_type": nodeType,
+		"node_type": strings.ToLower(nodeType_for_requests),
 		"token":     apiConfig.Key,
 	})
 	// Read local rule list
@@ -94,13 +96,12 @@ func readLocalRuleList(path string) (LocalRuleList []api.DetectRule) {
 	if path != "" {
 		// open the file
 		file, err := os.Open(path)
-		defer file.Close()
 		// handle errors while opening
 		if err != nil {
 			log.Printf("Error when opening file: %s", err)
 			return LocalRuleList
 		}
-
+		defer file.Close()
 		fileScanner := bufio.NewScanner(file)
 
 		// read line by line
@@ -250,8 +251,12 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		} else {
 			u.SpeedLimit = uint64(users[i].SpeedLimit * 1000000 / 8)
 		}
-
-		u.DeviceLimit = c.DeviceLimit // todo waiting v2board send configuration
+		//Prefer local config
+		if c.DeviceLimit > 0 {
+			u.DeviceLimit = c.DeviceLimit
+		} else {
+			u.DeviceLimit = users[i].DeviceLimit
+		}
 		u.Email = u.UUID + "@v2board.user"
 		if c.NodeType == "Shadowsocks" {
 			u.Passwd = u.UUID
@@ -316,15 +321,47 @@ func (c *APIClient) ReportIllegal(detectResultList *[]api.DetectResult) error {
 
 // parseTrojanNodeResponse parse the response for the given nodeInfo format
 func (c *APIClient) parseTrojanNodeResponse(s *serverConfig) (*api.NodeInfo, error) {
+	var (
+		host   string
+		header json.RawMessage
+	)
+	transportProtocol := func() string {
+		if s.Network == "" {
+			return "tcp"
+		} else {
+			return s.Network
+		}
+	}()
+	switch transportProtocol {
+	case "ws":
+		if s.NetworkSettings.Headers != nil {
+			if httpHeader, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
+				return nil, err
+			} else {
+				b, _ := simplejson.NewJson(httpHeader)
+				host = b.Get("Host").MustString()
+			}
+		}
+	case "tcp":
+		if s.NetworkSettings.Header != nil {
+			if httpHeader, err := s.NetworkSettings.Header.MarshalJSON(); err != nil {
+				return nil, err
+			} else {
+				header = httpHeader
+			}
+		}
+	}
 	// Create GeneralNodeInfo
 	nodeInfo := &api.NodeInfo{
 		NodeType:          c.NodeType,
 		NodeID:            c.NodeID,
 		Port:              uint32(s.ServerPort),
-		TransportProtocol: "tcp",
+		TransportProtocol: transportProtocol,
+		Path:              s.NetworkSettings.Path,
 		EnableTLS:         true,
-		Host:              s.Host,
-		ServiceName:       s.ServerName,
+		Host:              host,
+		Header:            header,
+		ServiceName:       s.NetworkSettings.ServiceName,
 		NameServerConfig:  s.parseDNSConfig(),
 	}
 	return nodeInfo, nil
@@ -369,32 +406,19 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		enableTLS     bool
 		enableREALITY bool
 		dest          string
-		xVer          uint64
 	)
-
-	if s.VlessTlsSettings.Dest != "" {
-		dest = s.VlessTlsSettings.Dest
+	if s.TlsSettings.Dest != "" {
+		dest = s.TlsSettings.Dest
 	} else {
-		dest = s.VlessTlsSettings.Sni
+		dest = s.TlsSettings.Sni
 	}
-	if s.VlessTlsSettings.xVer != 0 {
-		xVer = s.VlessTlsSettings.xVer
-	} else {
-		xVer = 0
+	realityconfig := api.REALITYConfig{
+		Dest:             dest + ":" + s.TlsSettings.ServerPort,
+		ProxyProtocolVer: s.TlsSettings.Xver,
+		ServerNames:      []string{s.TlsSettings.Sni},
+		PrivateKey:       s.TlsSettings.PrivateKey,
+		ShortIds:         []string{s.TlsSettings.ShortId},
 	}
-
-	realityConfig := api.REALITYConfig{
-		Dest:             dest + ":" + s.VlessTlsSettings.ServerPort,
-		ProxyProtocolVer: xVer,
-		ServerNames:      []string{s.VlessTlsSettings.Sni},
-		PrivateKey:       s.VlessTlsSettings.PrivateKey,
-		ShortIds:         []string{s.VlessTlsSettings.ShortId},
-	}
-
-	if c.EnableVless {
-		s.NetworkSettings = s.VlessNetworkSettings
-	}
-
 	switch s.Network {
 	case "ws":
 		if s.NetworkSettings.Headers != nil {
@@ -413,7 +437,7 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 				header = httpHeader
 			}
 		}
-	case "httpupgrade", "splithttp":
+	case "httpupgrade", "xhttp":
 		if s.NetworkSettings.Headers != nil {
 			if httpHeaders, err := s.NetworkSettings.Headers.MarshalJSON(); err != nil {
 				return nil, err
@@ -427,16 +451,11 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		}
 	}
 
-	switch s.Tls {
-	case 0:
-		enableTLS = false
-		enableREALITY = false
-	case 1:
+	if s.Tls != 0 {
 		enableTLS = true
-		enableREALITY = false
-	case 2:
-		enableTLS = true
-		enableREALITY = true
+		if s.Tls == 2 {
+			enableREALITY = true
+		}
 	}
 
 	// Create GeneralNodeInfo
@@ -454,7 +473,7 @@ func (c *APIClient) parseV2rayNodeResponse(s *serverConfig) (*api.NodeInfo, erro
 		ServiceName:       s.NetworkSettings.ServiceName,
 		Header:            header,
 		EnableREALITY:     enableREALITY,
-		REALITYConfig:     &realityConfig,
+		REALITYConfig:     &realityconfig,
 		NameServerConfig:  s.parseDNSConfig(),
 	}, nil
 }

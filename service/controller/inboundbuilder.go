@@ -214,18 +214,25 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 		}
 	} else if config.EnableREALITY && config.REALITYConfigs != nil {
 		isREALITY = true
+		dest, err := json.Marshal(config.REALITYConfigs.Dest)
+		if err != nil {
+			return nil, fmt.Errorf("marshal dest %s config fialed: %s", dest, err)
+		}
 		streamSetting.Security = "reality"
-
+		private_key := nodeInfo.REALITYConfig.PrivateKey
+		if private_key == "" {
+			private_key = config.REALITYConfigs.PrivateKey
+		}
 		streamSetting.REALITYSettings = &conf.REALITYConfig{
 			Show:         config.REALITYConfigs.Show,
-			Dest:         []byte(`"` + config.REALITYConfigs.Dest + `"`),
+			Dest:         dest,
 			Xver:         config.REALITYConfigs.ProxyProtocolVer,
 			ServerNames:  config.REALITYConfigs.ServerNames,
-			PrivateKey:   config.REALITYConfigs.PrivateKey,
+			PrivateKey:   private_key,
 			MinClientVer: config.REALITYConfigs.MinClientVer,
 			MaxClientVer: config.REALITYConfigs.MaxClientVer,
 			MaxTimeDiff:  config.REALITYConfigs.MaxTimeDiff,
-			ShortIds:     config.REALITYConfigs.ShortIds,
+			ShortIds:     append(config.REALITYConfigs.ShortIds, nodeInfo.REALITYConfig.ShortIds...),
 		}
 	}
 
