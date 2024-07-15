@@ -488,3 +488,8 @@ func (c *APIClient) ParseUserListResponse(userInfoResponse *[]UserResponse) (*[]
 
 	return &userList, nil
 }
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	return nil
+}

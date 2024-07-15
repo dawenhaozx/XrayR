@@ -401,3 +401,8 @@ func (s *serverConfig) parseDNSConfig() (nameServerList []*conf.NameServerConfig
 
 	return
 }
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	return nil
+}
