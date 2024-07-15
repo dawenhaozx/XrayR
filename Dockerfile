@@ -13,7 +13,8 @@ RUN apk --update --no-cache add curl tzdata ca-certificates \
     && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && mkdir /etc/XrayR/ \
     && curl -L "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat" -o /etc/XrayR/geoip.dat \
-    && curl -L "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat" -o /etc/XrayR/geosite.dat
+    && curl -L "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat" -o /etc/XrayR/geosite.dat \
+    && curl -L "https://raw.githubusercontent.com/DustinWin/ruleset_geodata/clash/geosite-lite.dat" -o /etc/XrayR/ai.dat
 
 COPY --from=builder /app/XrayR /usr/local/bin
 
