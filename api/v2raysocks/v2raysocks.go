@@ -508,3 +508,8 @@ func (c *APIClient) ParseV2rayNodeResponse(nodeInfoResponse *simplejson.Json) (*
 	}
 	return nodeInfo, nil
 }
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	return nil
+}

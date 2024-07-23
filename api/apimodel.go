@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"regexp"
+	"sync"
 
 	"github.com/xtls/xray-core/infra/conf"
 )
@@ -130,4 +131,13 @@ type REALITYConfig struct {
 	MaxClientVer     string
 	MaxTimeDiff      uint64
 	ShortIds         []string
+}
+
+// 用户UUID和其存活的IP地址映射关系的全局变量
+var UserAliveIPsMap *sync.Map
+var PushInterval, PullInterval int
+
+// 初始化全局变量
+func init() {
+	UserAliveIPsMap = new(sync.Map)
 }
