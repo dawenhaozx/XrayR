@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -199,6 +200,8 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 		return nil, fmt.Errorf("parse node info failed: %s, \nError: %v", res.String(), err)
 	}
 
+	api.PushInterval = server.BaseConfig.PushInterval
+	api.PullInterval = server.BaseConfig.PullInterval
 	return nodeInfo, nil
 }
 
@@ -238,33 +241,82 @@ func (c *APIClient) GetUserList() (UserList *[]api.UserInfo, err error) {
 		return nil, errors.New("users is null")
 	}
 
-	userList := make([]api.UserInfo, len(users))
-	for i := 0; i < len(users); i++ {
+	var deviceLimit int = 0
+	var userList []api.UserInfo
+	for _, user := range users {
 		u := api.UserInfo{
-			UID:  users[i].Id,
-			UUID: users[i].Uuid,
+			UID:  user.Id,
+			UUID: user.Uuid,
 		}
-
 		// Support 1.7.1 speed limit
 		if c.SpeedLimit > 0 {
 			u.SpeedLimit = uint64(c.SpeedLimit * 1000000 / 8)
 		} else {
-			u.SpeedLimit = uint64(users[i].SpeedLimit * 1000000 / 8)
+			u.SpeedLimit = uint64(user.SpeedLimit * 1000000 / 8)
 		}
 		//Prefer local config
 		if c.DeviceLimit > 0 {
-			u.DeviceLimit = c.DeviceLimit
+			deviceLimit = c.DeviceLimit
 		} else {
-			u.DeviceLimit = users[i].DeviceLimit
+			deviceLimit = user.DeviceLimit
 		}
+
+		u.DeviceLimit = deviceLimit
 		u.Email = u.UUID + "@v2board.user"
 		if c.NodeType == "Shadowsocks" {
 			u.Passwd = u.UUID
 		}
-		userList[i] = u
+
+		userList = append(userList, u)
 	}
 
 	return &userList, nil
+}
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	var users []*aips
+	path := "/api/v1/server/UniProxy/aips"
+
+	switch c.NodeType {
+	case "V2ray", "Trojan", "Shadowsocks", "Vmess", "Vless":
+		break
+	default:
+		return fmt.Errorf("unsupported node type: %s", c.NodeType)
+	}
+
+	res, err := c.client.R().
+		SetHeader("If-None-Match", c.eTags["users"]).
+		ForceContentType("application/json").
+		Get(path)
+
+	// Etag identifier for a specific version of a resource. StatusCode = 304 means no changed
+	if res.StatusCode() == 304 {
+		return errors.New("AliveIPs same")
+	}
+	// update etag
+	if res.Header().Get("Etag") != "" && res.Header().Get("Etag") != c.eTags["users"] {
+		c.eTags["users"] = res.Header().Get("Etag")
+	}
+
+	usersResp, err := c.parseResponse(res, path, err)
+	if err != nil {
+		return err
+	}
+	b, _ := usersResp.Get("users").Encode()
+	json.Unmarshal(b, &users)
+	if len(users) == 0 {
+		return errors.New("users is null")
+	}
+	api.UserAliveIPsMap = new(sync.Map)
+	for _, user := range users {
+		if len(user.AliveIPs) > 0 {
+			api.UserAliveIPsMap.Store(user.Id, user.AliveIPs)
+			log.Printf("GetIpsList: userid=%d, aliveips=%s, lastOnline=%d", user.Id, user.AliveIPs, c.LastReportOnline[user.Id])
+		}
+	}
+
+	return nil
 }
 
 // ReportUserTraffic reports the user traffic
@@ -311,6 +363,25 @@ func (c *APIClient) ReportNodeStatus(nodeStatus *api.NodeStatus) (err error) {
 
 // ReportNodeOnlineUsers implements the API interface
 func (c *APIClient) ReportNodeOnlineUsers(onlineUserList *[]api.OnlineUser) error {
+	reportOnline := make(map[int]int)
+	data := make(map[int][]string)
+	for _, onlineuser := range *onlineUserList {
+		// json structure: { UID1:["ip1","ip2"],UID2:["ip3","ip4"] }
+		data[onlineuser.UID] = append(data[onlineuser.UID], onlineuser.IP)
+		if onlineuser.IP != "" {
+			reportOnline[onlineuser.UID]++
+		}
+	}
+	c.LastReportOnline = reportOnline // Update LastReportOnline
+
+	path := "/api/v1/server/UniProxy/alive"
+	res, err := c.client.R().SetBody(data).ForceContentType("application/json").Post(path)
+	_, err = c.parseResponse(res, path, err)
+	// 面板无对应接口时先不报错
+	if err != nil {
+		return nil
+	}
+
 	return nil
 }
 

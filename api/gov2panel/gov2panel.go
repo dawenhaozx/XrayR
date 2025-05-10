@@ -327,3 +327,8 @@ func (c *APIClient) sendRequest(headerM map[string]string, method string, url st
 
 	return
 }
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	return nil
+}

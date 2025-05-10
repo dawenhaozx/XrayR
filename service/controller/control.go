@@ -147,8 +147,13 @@ func (c *Controller) DeleteInboundLimiter(tag string) error {
 	return err
 }
 
-func (c *Controller) GetOnlineDevice(tag string) (*[]api.OnlineUser, error) {
-	return c.dispatcher.Limiter.GetOnlineDevice(tag)
+func (c *Controller) ResetOtraffic(tag string) error {
+	err := c.dispatcher.Limiter.ResetOtraffic(tag)
+	return err
+}
+
+func (c *Controller) GetOnlineDevice(tag string, userTraffic map[int]int64, T int64) (*[]api.OnlineUser, bool, error) {
+	return c.dispatcher.Limiter.GetOnlineDevice(tag, userTraffic, T)
 }
 
 func (c *Controller) UpdateRule(tag string, newRuleList []api.DetectRule) error {

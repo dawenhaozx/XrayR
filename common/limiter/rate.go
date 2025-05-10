@@ -2,7 +2,6 @@ package limiter
 
 import (
 	"context"
-	"io"
 
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
@@ -12,7 +11,6 @@ import (
 type Writer struct {
 	writer  buf.Writer
 	limiter *rate.Limiter
-	w       io.Writer
 }
 
 func (l *Limiter) RateWriter(writer buf.Writer, limiter *rate.Limiter) buf.Writer {

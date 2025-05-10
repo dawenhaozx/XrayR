@@ -425,3 +425,8 @@ func (c *APIClient) ParseNodeInfo(nodeInfoResponse *Server) (*api.NodeInfo, erro
 
 	return nodeInfo, nil
 }
+
+// GetIpsList will pull user form panel
+func (c *APIClient) GetIpsList() error {
+	return nil
+}
