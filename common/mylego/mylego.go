@@ -32,13 +32,13 @@ func New(certConf *CertConfig) (*LegoCMD, error) {
 	return lego, nil
 }
 
-func (l *LegoCMD) getPath() string {
-	return l.path
-}
+// func (l *LegoCMD) getPath() string {
+// 	return l.path
+// }
 
-func (l *LegoCMD) getCertConfig() *CertConfig {
-	return l.C
-}
+// func (l *LegoCMD) getCertConfig() *CertConfig {
+// 	return l.C
+// }
 
 // DNSCert cert a domain using DNS API
 func (l *LegoCMD) DNSCert() (CertPath string, KeyPath string, err error) {
