@@ -22,6 +22,7 @@ type Config struct {
 	NodeType            string  `mapstructure:"NodeType"`
 	EnableVless         bool    `mapstructure:"EnableVless"`
 	VlessFlow           string  `mapstructure:"VlessFlow"`
+	EnableTFO           bool    `mapstructure:"EnableTFO"`
 	Timeout             int     `mapstructure:"Timeout"`
 	SpeedLimit          float64 `mapstructure:"SpeedLimit"`
 	DeviceLimit         int     `mapstructure:"DeviceLimit"`
