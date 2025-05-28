@@ -253,6 +253,8 @@ func InboundBuilder(config *Config, nodeInfo *api.NodeInfo, tag string) (*core.I
 	if networkType != "tcp" && networkType != "ws" && config.EnableProxyProtocol {
 		sockoptConfig := &conf.SocketConfig{
 			AcceptProxyProtocol: config.EnableProxyProtocol,
+			TFO:                 config.EnableTFO,
+			TcpMptcp:            config.EnableMPTCP,
 		}
 		streamSetting.SocketSettings = sockoptConfig
 	}

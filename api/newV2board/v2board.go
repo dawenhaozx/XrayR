@@ -83,7 +83,6 @@ func New(apiConfig *api.Config) *APIClient {
 		NodeType:      apiConfig.NodeType,
 		EnableVless:   apiConfig.EnableVless,
 		VlessFlow:     apiConfig.VlessFlow,
-		EnableTFO:     apiConfig.EnableTFO,
 		SpeedLimit:    apiConfig.SpeedLimit,
 		DeviceLimit:   apiConfig.DeviceLimit,
 		LocalRuleList: localRuleList,
@@ -201,9 +200,6 @@ func (c *APIClient) GetNodeInfo() (nodeInfo *api.NodeInfo, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse node info failed: %s, \nError: %v", res.String(), err)
 	}
-
-	nodeInfo.EnableTFO = c.EnableTFO
-	log.Printf("EnableTFO: nodeInfo.EnableTFO = %v, c.EnableTFO = %v", nodeInfo.EnableTFO, c.EnableTFO)
 
 	api.PushInterval = server.BaseConfig.PushInterval
 	api.PullInterval = server.BaseConfig.PullInterval

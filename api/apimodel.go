@@ -22,7 +22,6 @@ type Config struct {
 	NodeType            string  `mapstructure:"NodeType"`
 	EnableVless         bool    `mapstructure:"EnableVless"`
 	VlessFlow           string  `mapstructure:"VlessFlow"`
-	EnableTFO           bool    `mapstructure:"EnableTFO"`
 	Timeout             int     `mapstructure:"Timeout"`
 	SpeedLimit          float64 `mapstructure:"SpeedLimit"`
 	DeviceLimit         int     `mapstructure:"DeviceLimit"`
@@ -66,7 +65,6 @@ type NodeInfo struct {
 	EnableREALITY       bool
 	REALITYConfig       *REALITYConfig
 	Show                bool
-	EnableTFO           bool
 	Dest                string
 	ProxyProtocolVer    uint64
 	ServerNames         []string

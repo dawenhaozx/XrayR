@@ -25,6 +25,8 @@ type Config struct {
 	DisableLocalREALITYConfig bool                             `mapstructure:"DisableLocalREALITYConfig"`
 	EnableREALITY             bool                             `mapstructure:"EnableREALITY"`
 	REALITYConfigs            *REALITYConfig                   `mapstructure:"REALITYConfigs"`
+	EnableTFO                 interface{}                      `mapstructure:"EnableTFO"`
+	EnableMPTCP               bool                             `mapstructure:"EnableMPTCP"`
 }
 
 type AutoSpeedLimitConfig struct {

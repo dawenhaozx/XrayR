@@ -166,7 +166,7 @@ func (c *Controller) Start() error {
 	)
 	c.clientInfo = c.apiClient.Describe()
 	// Check cert service in need
-	if c.nodeInfo.EnableTLS && c.config.EnableREALITY == false {
+	if c.nodeInfo.EnableTLS && !c.config.EnableREALITY {
 		c.tasks = append(c.tasks, periodicTask{
 			tag: "cert monitor",
 			Periodic: &task.Periodic{
@@ -418,7 +418,7 @@ func (c *Controller) addInboundForSSPlugin(newNodeInfo api.NodeInfo) (err error)
 }
 
 func (c *Controller) addNewUser(userInfo *[]api.UserInfo, nodeInfo *api.NodeInfo) (err error) {
-	users := make([]*protocol.User, 0)
+	var users []*protocol.User
 	switch nodeInfo.NodeType {
 	case "V2ray", "Vmess", "Vless":
 		if nodeInfo.EnableVless || (nodeInfo.NodeType == "Vless" && nodeInfo.NodeType != "Vmess") {
@@ -457,12 +457,10 @@ func compareUserList(old, new *[]api.UserInfo) (deleted, added []api.UserInfo) {
 	}
 	// 2.目数组中，存不进去，即重复元素，所有存不进去的集合就是并集
 	for _, v := range *new {
-		l := len(mAll)
-		mAll[v] = 1
-		if l != len(mAll) { // 长度变化，即可以存
-			l = len(mAll)
-		} else { // 存不了，进并集
+		if _, exists := mAll[v]; exists {
 			set = append(set, v)
+		} else {
+			mAll[v] = 1
 		}
 	}
 	// 3.遍历交集，在并集中找，找到就从并集中删，删完后就是补集（即并-交=所有变化的元素）
@@ -622,7 +620,7 @@ func (c *Controller) buildNodeTag() string {
 
 // Check Cert
 func (c *Controller) certMonitor() error {
-	if c.nodeInfo.EnableTLS && c.config.EnableREALITY == false {
+	if c.nodeInfo.EnableTLS && !c.config.EnableREALITY {
 		switch c.config.CertConfig.CertMode {
 		case "dns", "http", "tls":
 			lego, err := mylego.New(c.config.CertConfig)

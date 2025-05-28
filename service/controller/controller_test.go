@@ -40,10 +40,10 @@ func TestController(t *testing.T) {
 	// 	}}
 
 	server, err := core.New(config)
-	defer server.Close()
 	if err != nil {
 		t.Errorf("failed to create instance: %s", err)
 	}
+	defer server.Close()
 	if err = server.Start(); err != nil {
 		t.Errorf("Failed to start instance: %s", err)
 	}
@@ -75,7 +75,7 @@ func TestController(t *testing.T) {
 
 	{
 		osSignals := make(chan os.Signal, 1)
-		signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
+		signal.Notify(osSignals, os.Interrupt, syscall.SIGTERM)
 		<-osSignals
 	}
 }
