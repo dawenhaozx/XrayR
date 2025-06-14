@@ -86,6 +86,21 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 	if err != nil {
 		log.Panicf("Failed to understand Routing config  Please check: https://xtls.github.io/config/routing.html for help: %s", err)
 	}
+	// Observatory config
+	coreObservatoryConfig := &conf.ObservatoryConfig{}
+	if panelConfig.ObservatoryConfigPath != "" {
+		if data, err := os.ReadFile(panelConfig.ObservatoryConfigPath); err != nil {
+			log.Panicf("Failed to read Observatory config file at: %s", panelConfig.ObservatoryConfigPath)
+		} else {
+			if err = json.Unmarshal(data, coreRouterConfig); err != nil {
+				log.Panicf("Failed to unmarshal Observatory config: %s", panelConfig.ObservatoryConfigPath)
+			}
+		}
+	}
+	ObservatoryConfig, err := coreObservatoryConfig.Build()
+	if err != nil {
+		log.Panicf("Failed to understand Routing config  Please check: https://xtls.github.io/config/Observatory.html for help: %s", err)
+	}
 	// Custom Inbound config
 	var coreCustomInboundConfig []conf.InboundDetourConfig
 	if panelConfig.InboundConfigPath != "" {
@@ -140,6 +155,7 @@ func (p *Panel) loadCore(panelConfig *Config) *core.Instance {
 			serial.ToTypedMessage(policyConfig),
 			serial.ToTypedMessage(dnsConfig),
 			serial.ToTypedMessage(routeConfig),
+			serial.ToTypedMessage(ObservatoryConfig),
 		},
 		Inbound:  inBoundConfig,
 		Outbound: outBoundConfig,
